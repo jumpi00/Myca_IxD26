@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MYCA — Dashboard Cittadino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+  :root{
+    /* accents — constant across themes */
+    --lime:#dfec44; --lime-2:#c9d92e;
+    --orange:#ea5b2e;
+    --ink:#26292a;
+    --greige:#e6e2da;
+    --radius:22px;
+    --mono:'Space Mono', monospace;
+    --sans:'Instrument Sans', sans-serif;
+  }
+  /* ---------- DARK THEME (default) ---------- */
+  :root[data-theme="dark"]{
+    --page-bg:#131311;
+    --surface:#1e1f1c;
+    --surface-2:#242522;
+    --surface-text:#f4f2ee;
+    --surface-muted:#9a9a93;
+    --surface-border:rgba(255,255,255,.10);
+    --surface-border-strong:rgba(255,255,255,.20);
+    --surface-hover:rgba(255,255,255,.06);
+    --nav-bg:rgba(30,31,28,.85);
+    --panel:#e6e2da;
+    --panel-text:#26292a;
+    --panel-muted:#4c4f4e;
+    --panel-border:rgba(38,41,42,.18);
+    --map-shadow:rgba(0,0,0,.45);
+  }
+  /* ---------- LIGHT THEME ---------- */
+  :root[data-theme="light"]{
+    --page-bg:#e7e3da;
+    --surface:#ffffff;
+    --surface-2:#f4f1ea;
+    --surface-text:#26292a;
+    --surface-muted:#7c7e76;
+    --surface-border:rgba(38,41,42,.12);
+    --surface-border-strong:rgba(38,41,42,.26);
+    --surface-hover:rgba(38,41,42,.05);
+    --nav-bg:rgba(255,255,255,.82);
+    --panel:#26292a;
+    --panel-text:#f4f2ee;
+    --panel-muted:#a9aba3;
+    --panel-border:rgba(255,255,255,.14);
+    --map-shadow:rgba(0,0,0,.25);
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--page-bg);
+    font-family:var(--sans);
+    color:var(--surface-text);
+    padding:10px;
+    -webkit-font-smoothing:antialiased;
+    height:100dvh;overflow:hidden;
+    display:flex;flex-direction:column;
+    transition:background .3s;
+  }
+  ::selection{background:var(--lime);color:var(--ink);}
+
+  /* ---------- NAV ---------- */
+  .nav{
+    position:relative;z-index:50;flex-shrink:0;width:100%;
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--nav-bg);
+    backdrop-filter:blur(14px);
+    border:1px solid var(--surface-border);
+    border-radius:999px;
+    padding:10px 12px 10px 22px;
+    margin:0 auto 10px;
+    max-width:1560px;
+  }
+  .nav-left{display:flex;align-items:center;gap:14px;}
+  .nav-left .logo{height:20px;display:block;}
+  .nav-left .logo svg{height:100%;width:auto;display:block;}
+  .nav-left .logo svg path{fill:var(--surface-text);}
+  .nav-left .tag{
+    font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--surface-muted);
+    border-left:1px solid var(--surface-border);padding-left:14px;
+  }
+  .nav-center{display:flex;align-items:center;gap:4px;background:var(--surface-hover);border-radius:999px;padding:4px;}
+  .nav-center a{
+    font-size:14px;font-weight:500;text-decoration:none;color:var(--surface-muted);
+    padding:8px 20px;border-radius:999px;transition:color .2s;
+  }
+  .nav-center a:hover{color:var(--surface-text);}
+  .nav-center a.active{background:var(--lime);color:var(--ink);font-weight:600;}
+  .nav-right{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--surface-muted);padding-right:10px;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--lime);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* ---------- GRID ---------- */
+  .grid{
+    display:grid;width:100%;max-width:1560px;margin:0 auto;
+    flex:1;min-height:0;gap:10px;
+    grid-template-columns:repeat(6,1fr);
+    grid-template-rows:repeat(4,minmax(0,1fr));
+    grid-template-areas:
+      "hero hero map map bio bio"
+      "hero hero map map mod mod"
+      "env  env  map map mod mod"
+      "env  env  act act comm comm";
+  }
+  .card{
+    border-radius:var(--radius);
+    padding:clamp(14px,1.4vw,24px);
+    position:relative;overflow:hidden;
+    background:var(--surface);
+    color:var(--surface-text);
+    border:1px solid var(--surface-border);
+    display:flex;flex-direction:column;min-height:0;min-width:0;
+    transition:background .3s,color .3s,border-color .3s;
+  }
+  .card.light{background:var(--panel);color:var(--panel-text);border-color:var(--panel-border);}
+  .card.lime{background:linear-gradient(135deg,#e9f455 0%,var(--lime) 45%,#c6d626 100%);color:var(--ink);border:none;}
+  .card.orange{background:linear-gradient(140deg,#f0693c 0%,var(--orange) 60%,#d64a20 100%);color:#fdf3ec;border:none;}
+
+  .kicker{
+    font-family:var(--mono);font-size:10px;font-weight:400;
+    letter-spacing:.14em;text-transform:uppercase;
+    display:inline-flex;align-items:center;gap:8px;
+    margin-bottom:10px;color:var(--surface-muted);
+  }
+  .card.light .kicker{color:var(--panel-muted);}
+  .card.lime .kicker,.card.orange .kicker{color:inherit;opacity:.75;}
+  .kicker .chip{
+    background:var(--panel-text);color:var(--panel);
+    padding:4px 10px;border-radius:6px;letter-spacing:.14em;
+  }
+
+  .dotring{position:absolute;border-radius:50%;border:1.5px dotted currentColor;opacity:.28;pointer-events:none;}
+
+  /* ---------- HERO ---------- */
+  .hero{grid-area:hero;justify-content:space-between;}
+  .hero h1{font-size:clamp(22px,1.6vw + 2.2vh,44px);font-weight:600;letter-spacing:-.02em;line-height:1.02;margin:6px 0 8px;}
+  .hero h1 em{font-style:italic;font-weight:500;}
+  .hero .sub{font-size:clamp(12px,1.4vh,15px);line-height:1.45;color:var(--panel-muted);max-width:36ch;}
+  .hero-bottom{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+  .pill-stat{
+    border:1px solid var(--panel-border);border-radius:999px;
+    padding:6px 13px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+    display:flex;align-items:center;gap:7px;white-space:nowrap;
+  }
+  .pill-stat b{font-family:var(--sans);font-size:13px;font-weight:600;letter-spacing:0;}
+  .pill-stat .dot{width:8px;height:8px;border-radius:50%;}
+  .dot.good{background:#7bb662;} .dot.mid{background:#e0b13c;} .dot.bad{background:var(--orange);}
+
+  /* ---------- MAP ---------- */
+  .map{grid-area:map;padding:0;background:var(--surface);}
+  .map-head{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    padding:clamp(14px,1.4vw,22px) clamp(14px,1.4vw,22px) 0;
+    position:relative;z-index:2;pointer-events:none;
+  }
+  .map-head h2{font-size:clamp(17px,2vh,22px);font-weight:600;letter-spacing:-.01em;}
+  .map-head .kicker{margin-bottom:6px;}
+  .map-body{flex:1;position:relative;min-height:0;}
+  #mapLeaflet{position:absolute;inset:0;width:100%;height:100%;border-radius:0 0 var(--radius) var(--radius);z-index:1;}
+  .leaflet-container{background:var(--surface);font-family:var(--sans);}
+  .legend{
+    position:absolute;left:16px;bottom:14px;z-index:1200;pointer-events:none;
+    display:flex;flex-direction:column;gap:7px;
+    background:color-mix(in srgb,var(--surface) 78%,transparent);
+    backdrop-filter:blur(6px);border:1px solid var(--surface-border);
+    border-radius:12px;padding:10px 12px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--surface-muted);
+  }
+  .legend span{display:flex;align-items:center;gap:8px;}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+
+  /* custom Leaflet markers (hotspot style preserved) */
+  .myca-marker{background:transparent;border:none;}
+  .myca-dot{position:relative;display:block;width:14px;height:14px;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 28%,transparent);}
+  .myca-ring{position:absolute;inset:-1px;border-radius:50%;border:1.5px solid var(--c);animation:sonar 2.6s ease-out infinite;}
+  @keyframes sonar{0%{transform:scale(.5);opacity:.9}100%{transform:scale(2.4);opacity:0}}
+
+  /* Leaflet tooltip / popup restyle to match panel */
+  .mtip .t-name{font-weight:600;font-size:14px;margin-bottom:6px;}
+  .mtip .t-row{display:flex;justify-content:space-between;gap:18px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--panel-muted);padding:2px 0;}
+  .mtip .t-row b{color:var(--panel-text);}
+  .leaflet-tooltip.myca-tt{
+    background:var(--panel);color:var(--panel-text);border:none;border-radius:12px;
+    padding:12px 14px;box-shadow:0 12px 30px var(--map-shadow);min-width:170px;
+  }
+  .leaflet-tooltip.myca-tt::before{display:none;}
+  .myca-pop .leaflet-popup-content-wrapper{background:var(--panel);color:var(--panel-text);border-radius:14px;box-shadow:0 16px 40px var(--map-shadow);}
+  .myca-pop .leaflet-popup-content{margin:14px 16px;font-size:12px;line-height:1.5;}
+  .myca-pop .leaflet-popup-tip{background:var(--panel);}
+  .myca-pop a.leaflet-popup-close-button{color:var(--panel-muted);}
+  .leaflet-bar{border:none!important;box-shadow:0 4px 14px var(--map-shadow);}
+  .leaflet-bar a{background:var(--surface);color:var(--surface-text);border-bottom:1px solid var(--surface-border)!important;}
+  .leaflet-bar a:hover{background:var(--surface-2);}
+  .leaflet-control-attribution{background:color-mix(in srgb,var(--surface) 72%,transparent)!important;color:var(--surface-muted)!important;font-size:9px;}
+  .leaflet-control-attribution a{color:var(--surface-muted)!important;}
+
+  /* ---------- BIO (lime) ---------- */
+  .bio{grid-area:bio;justify-content:space-between;}
+  .bignum{font-size:clamp(38px,7.5vh,80px);font-weight:600;letter-spacing:-.04em;line-height:.95;}
+  .bignum small{font-size:.35em;font-weight:500;letter-spacing:0;}
+  .bio .delta{font-family:var(--mono);font-size:11px;letter-spacing:.06em;margin-top:8px;display:flex;align-items:center;gap:6px;}
+  .bio .delta b{background:var(--ink);color:var(--lime);border-radius:6px;padding:3px 8px;font-weight:700;}
+
+  /* ---------- MODULE ---------- */
+  .mod{grid-area:mod;justify-content:space-between;}
+  .mod h3{font-size:clamp(17px,2vh,22px);font-weight:600;letter-spacing:-.01em;margin-bottom:2px;}
+  .mod .addr{font-size:12px;color:var(--panel-muted);}
+  .cavity-wrap{display:flex;align-items:center;gap:clamp(14px,1.6vw,24px);margin:clamp(10px,1.6vh,20px) 0;min-height:0;flex:1;}
+  .cavity{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(4px,.6vh,7px);width:clamp(92px,13vh,150px);flex-shrink:0;}
+  .cavity i{
+    aspect-ratio:1;border-radius:8px;
+    background:color-mix(in srgb,var(--panel-text) 12%,transparent);
+    border:1px solid var(--panel-border);position:relative;
+  }
+  .cavity i::after{content:"";position:absolute;inset:0;margin:auto;width:34%;height:34%;border-radius:50%;background:color-mix(in srgb,var(--panel-text) 22%,transparent);}
+  .cavity i.full{background:var(--panel-text);border-color:var(--panel-text);}
+  .cavity i.full::after{background:var(--lime);}
+  .cavity i.new{background:var(--orange);border-color:var(--orange);}
+  .cavity i.new::after{background:#fff;}
+  .mod-stats{display:flex;flex-direction:column;gap:clamp(6px,1vh,12px);font-size:clamp(11px,1.3vh,13px);}
+  .mod-stats .row{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid var(--panel-border);padding-bottom:clamp(4px,.8vh,9px);}
+  .mod-stats .row span{color:var(--panel-muted);}
+  .mod-stats .row b{font-weight:600;white-space:nowrap;}
+  .progress{height:6px;border-radius:99px;background:color-mix(in srgb,var(--panel-text) 14%,transparent);overflow:hidden;margin-top:4px;}
+  .progress i{display:block;height:100%;width:67%;background:var(--panel-text);border-radius:99px;}
+
+  /* ---------- ENV DATA ---------- */
+  .env{grid-area:env;}
+  .env-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(2,minmax(0,1fr));gap:8px;flex:1;margin-top:4px;min-height:0;}
+  .env-cell{
+    border:1px solid var(--surface-border);border-radius:16px;
+    padding:clamp(10px,1.2vh,16px) clamp(12px,1.2vw,18px);
+    display:flex;flex-direction:column;justify-content:space-between;gap:6px;min-height:0;overflow:hidden;
+  }
+  .env-cell .lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--surface-muted);}
+  .env-cell .val{font-size:clamp(18px,2.8vh,30px);font-weight:600;letter-spacing:-.02em;}
+  .env-cell .val small{font-size:13px;font-weight:400;color:var(--surface-muted);margin-left:3px;}
+  .spark{width:100%;height:26px;}
+  .spark polyline{fill:none;stroke:var(--lime);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .env-cell.warn .spark polyline{stroke:var(--orange);}
+  .env-cell .trend{font-family:var(--mono);font-size:10px;color:var(--surface-muted);}
+  .up{color:var(--lime);} .down{color:var(--orange);}
+  :root[data-theme="light"] .up{color:#7fa30f;}
+
+  /* ---------- ACTIVITY ---------- */
+  .act{grid-area:act;justify-content:space-between;}
+  .act .headline{display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
+  .act h3{font-size:clamp(16px,1.9vh,20px);font-weight:600;}
+  .act .tot{font-family:var(--mono);font-size:10px;color:var(--panel-muted);}
+  .bars{display:flex;align-items:flex-end;gap:5px;flex:1;min-height:36px;margin-top:clamp(8px,1.4vh,18px);}
+  .bars i{flex:1;border-radius:6px 6px 3px 3px;background:color-mix(in srgb,var(--panel-text) 20%,transparent);min-height:6px;position:relative;transition:background .2s;}
+  .bars i.peak{background:var(--panel-text);}
+  .bars i:hover{background:var(--orange);}
+  .bars-x{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--panel-muted);margin-top:10px;}
+
+  /* ---------- COMMUNITY ---------- */
+  .comm{grid-area:comm;justify-content:space-between;}
+  .comm h3{font-size:clamp(16px,2.2vh,26px);font-weight:600;letter-spacing:-.01em;line-height:1.1;max-width:18ch;}
+  .comm .cta{
+    align-self:flex-start;margin-top:clamp(8px,1.4vh,16px);
+    display:inline-flex;align-items:center;gap:10px;
+    background:#fdf3ec;color:var(--orange);text-decoration:none;font-weight:600;font-size:14px;
+    padding:clamp(8px,1.2vh,12px) clamp(14px,1.6vw,22px);border-radius:999px;transition:transform .2s;
+  }
+  .comm .cta:hover{transform:translateX(4px);}
+  .comm .obs{font-family:var(--mono);font-size:10px;letter-spacing:.06em;opacity:.85;margin-top:6px;}
+
+  /* ---------- FOOTER ---------- */
+  .foot{
+    width:100%;max-width:1560px;margin:10px auto 2px;flex-shrink:0;
+    display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--surface-muted);
+    padding:0 14px;
+  }
+  .foot-links{display:flex;align-items:center;gap:22px;flex-wrap:wrap;}
+  .foot a{color:var(--surface-muted);text-decoration:none;transition:color .2s;}
+  .foot a:hover{color:var(--lime);}
+  :root[data-theme="light"] .foot a:hover{color:var(--ink);}
+  .foot-right{display:flex;align-items:center;gap:16px;}
+  .theme-toggle{
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--surface-text);background:var(--surface-hover);
+    border:1px solid var(--surface-border);border-radius:999px;
+    padding:7px 14px;cursor:pointer;transition:.2s;
+  }
+  .theme-toggle:hover{border-color:var(--surface-border-strong);}
+  .theme-toggle .ic{font-size:12px;line-height:1;}
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width:1100px){
+    body{height:auto;overflow:auto;display:block;}
+    .grid{
+      grid-template-columns:repeat(2,1fr);grid-template-rows:none;
+      grid-auto-rows:minmax(190px,auto);
+      grid-template-areas:
+        "hero hero" "map map" "bio mod" "env env" "act comm";
+    }
+    .map-body{min-height:440px;}
+    .bars{height:110px;flex:none;}
+  }
+  @media (max-width:680px){
+    body{padding:8px;}
+    .nav{padding:8px 10px 8px 16px;flex-wrap:wrap;gap:8px;}
+    .nav .tag,.nav-right{display:none;}
+    .grid{grid-template-columns:1fr;grid-template-areas:"hero" "map" "bio" "mod" "env" "act" "comm";}
+    .foot{justify-content:center;text-align:center;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= NAV ================= -->
+<nav class="nav">
+  <div class="nav-left">
+    <span class="logo" aria-label="MYCA">
+      <svg viewBox="0 0 846.39 284" xmlns="http://www.w3.org/2000/svg">
+        <path d="M183.6,175.6c0-7.6,2-17.2,10.8-36.4l30.4-65.6c6-12.8,8-20.4,8-25.2,0-6-3.2-8.4-8.8-8.4-22.8,0-66.4,85.2-94.4,157.6h-36.4l40.8-124c5.2-14.8,6-20.4,6-24,0-7.2-4-9.6-10-9.6-22,0-58.4,72.8-92.8,157.6H.8L41.6,61.6c2.4-9.2,3.6-13.6,3.6-16,0-4-2-5.6-5.2-5.6-6.8,0-14.4,9.2-26,30l-14-4.4C16.4,28.8,34.4,3.2,61.6,3.2c14.4,0,23.2,7.6,23.2,22.8s-11.6,44.4-32.4,93.6h6C94.8,40.8,116.8,3.2,148.8,3.2c14.8,0,27.2,7.2,27.2,26.4,0,11.6-5.2,27.6-31.6,90.4h6C188.8,35.6,212.8,3.2,244,3.2c15.2,0,30,7.6,30,27.2,0,9.2-3.2,19.2-10.4,36.4l-34,77.6c-2.8,6.8-4,11.2-4,14.4,0,3.6,2,5.6,5.2,5.6,7.2,0,14.8-9.2,26.4-30.4l14.4,4.4c-16.4,37.2-35.2,62.8-62.4,62.8-15.2,0-25.6-8.4-25.6-25.6Z"/>
+        <path d="M469.6,51.2c0,59.6-37.2,114.4-84.8,161.6-41.6,41.6-87.2,71.2-127.2,71.2-26,0-45.2-15.6-45.2-37.6,0-14.4,8.8-24.8,23.2-24.8,28.4,0,18.4,36.4,26.8,44.8,29.2-4,52.4-20.4,65.6-42.8,16-27.6,19.6-69.6,19.6-114,0-42-3.2-69.6-12.8-69.6-7.2,0-15.6,16-23.6,38.8l-13.6-4c11.2-40.8,27.2-71.6,51.6-71.6,31.2,0,37.2,48.8,37.2,95.2,0,32.4-2.8,68.4-13.6,100.8,44.4-47.6,71.2-92.4,74-128.4-6.8-11.6-16-15.6-22.8-22.4-4.8-4.8-8.4-11.6-8.4-20,0-14.4,9.6-25.2,24.8-25.2,18.8,0,29.2,15.6,29.2,48Z"/>
+        <path d="M485.59,145.6c0-58.4,48.8-142.4,112.4-142.4,30,0,46.8,17.2,46.8,37.2,0,15.6-9.2,29.6-26.8,29.6-13.6,0-18.8-7.6-20-16.4-1.2-11.2,2-24-2.4-33.2-41.2,2.8-70.8,68.4-70.8,109.6,0,27.6,14.8,34.4,30,34.4s30.4-8.8,45.6-32l13.6,4c-9.2,26.4-32.4,66.8-73.6,66.8-31.6,0-54.8-16.8-54.8-57.6Z"/>
+        <path d="M825.59,134.4l13.2,4c-14.8,36.4-35.2,62.8-59.6,62.8-15.2,0-27.2-7.2-27.2-25.2,0-14.8,10.8-37.6,40-90.4h-6.4c-52,86-73.2,117.6-107.6,117.6-18.8,0-36-10.4-36-41.2,0-60.4,81.2-154,134.8-154,8.4,0,18,2.4,25.2,6.8l4.8-14.8h39.6l-50.8,148c-4,12-1.6,16.4,3.2,16.4,7.2,0,14.4-8,26.8-30ZM789.59,54.8c-10.4-16-25.6-22-36.4-22.8-23.2,2.4-71.2,80.4-71.2,115.2,0,13.2,6.4,17.2,14,17.2,21.6,0,50.4-37.6,93.6-109.6Z"/>
+      </svg>
+    </span>
+    <span class="tag">Dashboard ambientale · Milano</span>
+  </div>
+  <div class="nav-center">
+    <a href="cittadino.html" class="active">Cittadino</a>
+    <a href="comune.html">Comune</a>
+  </div>
+  <div class="nav-right">
+    <span class="live-dot"></span>
+    <span>Rete attiva</span>
+    <span id="clock">--:--</span>
+  </div>
+</nav>
+
+<!-- ================= GRID ================= -->
+<main class="grid">
+
+  <!-- HERO -->
+  <section class="card light hero">
+    <span class="dotring" style="width:340px;height:340px;top:-160px;right:-120px;"></span>
+    <span class="dotring" style="width:180px;height:180px;bottom:-70px;left:-50px;"></span>
+    <div>
+      <span class="kicker"><span class="chip">Il tuo quartiere</span> Lambrate ↗</span>
+      <h1>Ciao Giulia,<br>oggi Lambrate <em>respira bene.</em></h1>
+      <p class="sub">Qualità dell'aria buona e attività delle api in aumento intorno ai moduli che segui.</p>
+    </div>
+    <div class="hero-bottom">
+      <span class="pill-stat"><span class="dot good"></span>ARIA <b>Buona</b></span>
+      <span class="pill-stat">POLLINE <b>Medio</b></span>
+      <span class="pill-stat">UV <b>6 · Alto</b></span>
+      <span class="pill-stat">MODULI SEGUITI <b>3</b></span>
+    </div>
+  </section>
+
+  <!-- MAP -->
+  <section class="card map">
+    <div class="map-head">
+      <div>
+        <span class="kicker">Rete MYCA · Live</span>
+        <h2>La mappa di Milano</h2>
+      </div>
+      <span class="kicker" style="margin:0">142 moduli attivi</span>
+    </div>
+    <div class="map-body">
+      <div id="mapLeaflet"></div>
+      <div class="legend">
+        <span><i style="background:#dfec44"></i>Colonia attiva</span>
+        <span><i style="background:#ea5b2e"></i>Divario di biodiversità</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- BIODIVERSITY INDEX -->
+  <section class="card lime bio">
+    <span class="dotring" style="width:260px;height:260px;top:-120px;right:-90px;"></span>
+    <span class="kicker">Indice di biodiversità · Lambrate</span>
+    <div>
+      <div class="bignum">68<small>/100</small></div>
+      <div class="delta"><b>+6</b> rispetto a maggio · trend in crescita</div>
+    </div>
+  </section>
+
+  <!-- MODULE -->
+  <section class="card light mod">
+    <span class="kicker"><span class="chip">Adottato</span> Nest Module #27</span>
+    <div>
+      <h3>Il tuo modulo</h3>
+      <p class="addr">Via Saffiotti 12 · parete sud-est</p>
+    </div>
+    <div class="cavity-wrap">
+      <div class="cavity" aria-label="6 cavità occupate su 9">
+        <i class="full"></i><i class="full"></i><i></i>
+        <i class="full"></i><i class="new"></i><i class="full"></i>
+        <i></i><i class="full"></i><i class="full"></i>
+      </div>
+      <div class="mod-stats" style="flex:1">
+        <div class="row"><span>Cavità occupate</span><b>6 / 9</b></div>
+        <div class="row"><span>Ultima nidificazione</span><b>2 h fa · Osmia bicornis</b></div>
+        <div class="row" style="border:none;padding:0"><span>Colonizzazione micelio</span><b>67%</b></div>
+        <div class="progress"><i></i></div>
+      </div>
+    </div>
+    <span class="kicker" style="margin:0">🟠 Nuova cavità occupata oggi — continua così!</span>
+  </section>
+
+  <!-- ENV DATA -->
+  <section class="card env">
+    <span class="kicker">Dati ambientali · Sensori modulo #27 · ultime 24h</span>
+    <div class="env-grid">
+      <div class="env-cell">
+        <span class="lbl">Temperatura</span>
+        <span class="val">24.6<small>°C</small></span>
+        <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="0,20 14,18 28,19 42,14 56,10 70,8 84,9 100,6"/></svg>
+        <span class="trend"><span class="up">▲ +1.8°</span> da stamattina</span>
+      </div>
+      <div class="env-cell">
+        <span class="lbl">Umidità</span>
+        <span class="val">58<small>%</small></span>
+        <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="0,8 14,10 28,9 42,13 56,15 70,14 84,17 100,16"/></svg>
+        <span class="trend"><span class="down">▼ −4%</span> nelle ultime 6h</span>
+      </div>
+      <div class="env-cell warn">
+        <span class="lbl">PM2.5</span>
+        <span class="val">18<small>µg/m³</small></span>
+        <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="0,16 14,14 28,15 42,11 56,12 70,9 84,11 100,8"/></svg>
+        <span class="trend"><span class="down">▲ +3</span> · soglia OMS 15</span>
+      </div>
+      <div class="env-cell">
+        <span class="lbl">NO₂</span>
+        <span class="val">21<small>µg/m³</small></span>
+        <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none"><polyline points="0,10 14,12 28,11 42,14 56,13 70,16 84,15 100,18"/></svg>
+        <span class="trend"><span class="up">▼ −12%</span> vs media zona</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- BEE ACTIVITY -->
+  <section class="card light act">
+    <div class="headline">
+      <div>
+        <span class="kicker">Attività delle api · oggi</span>
+        <h3>412 passaggi rilevati</h3>
+      </div>
+      <span class="tot">PICCO 11:00 — 13:00</span>
+    </div>
+    <div class="bars" id="bars" aria-hidden="true"></div>
+    <div class="bars-x"><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>21</span></div>
+  </section>
+
+  <!-- COMMUNITY -->
+  <section class="card orange comm">
+    <span class="dotring" style="width:300px;height:300px;bottom:-140px;right:-110px;"></span>
+    <span class="kicker">Partecipa</span>
+    <h3>12 nuove osservazioni dal tuo quartiere.</h3>
+    <div>
+      <p class="obs">Fioritura in corso al Parco Lambro — segnala cosa vedi.</p>
+      <a class="cta" href="#">Aggiungi osservazione →</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <span>© 2026 MYCA · La geometria vivente · Tutti i diritti riservati</span>
+  <div class="foot-links">
+    <a href="#">Contatti</a>
+    <a href="#">Privacy policy</a>
+    <a href="#">Cookie policy</a>
+    <a href="#">Termini di utilizzo</a>
+  </div>
+  <div class="foot-right">
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Cambia tema">
+      <span class="ic">☀</span><span class="lbl">Tema chiaro</span>
+    </button>
+    <span>Milano · IT</span>
+  </div>
+</footer>
+
+<script>
+  /* ---------- THEME ---------- */
+  const root=document.documentElement;
+  const toggle=document.getElementById('themeToggle');
+  function paintToggle(t){
+    toggle.querySelector('.ic').textContent = t==='dark' ? '☀' : '☾';
+    toggle.querySelector('.lbl').textContent = t==='dark' ? 'Tema chiaro' : 'Tema scuro';
+  }
+  function setTheme(t){
+    root.setAttribute('data-theme',t);
+    localStorage.setItem('myca-theme',t);
+    paintToggle(t);
+    if(window.__setMapTheme) window.__setMapTheme(t);
+  }
+  setTheme(localStorage.getItem('myca-theme')||'dark');
+  toggle.addEventListener('click',()=>setTheme(root.getAttribute('data-theme')==='dark'?'light':'dark'));
+
+  /* ---------- CLOCK ---------- */
+  const clock=document.getElementById('clock');
+  const tick=()=>{clock.textContent=new Date().toTimeString().slice(0,5);};
+  tick();setInterval(tick,30000);
+
+  /* ---------- ACTIVITY BARS (placeholder) ---------- */
+  const data=[4,7,12,18,26,34,41,46,44,38,30,24,19,15,11,8,5];
+  const bars=document.getElementById('bars');const max=Math.max(...data);
+  data.forEach(v=>{const i=document.createElement('i');i.style.height=(v/max*100)+'%';if(v>=40)i.classList.add('peak');bars.appendChild(i);});
+
+  /* ---------- LEAFLET MAP OF MILAN ---------- */
+  const TILES={
+    dark:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    light:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+  };
+  const ATTR='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+  const map=L.map('mapLeaflet',{zoomControl:true,scrollWheelZoom:true,attributionControl:true})
+             .setView([45.4668,9.1905],12);
+  let tileLayer=L.tileLayer(TILES[root.getAttribute('data-theme')],{maxZoom:19,subdomains:'abcd',attribution:ATTR}).addTo(map);
+  window.__setMapTheme=(t)=>{const nl=L.tileLayer(TILES[t],{maxZoom:19,subdomains:'abcd',attribution:ATTR}).addTo(map);map.removeLayer(tileLayer);tileLayer=nl;};
+
+  const SPOTS=[
+    {n:'Lambrate',c:[45.4820,9.2360],mod:18,occ:'72%',bio:68,t:'active'},
+    {n:'Bovisa',c:[45.5015,9.1665],mod:14,occ:'61%',bio:57,t:'active'},
+    {n:'Niguarda',c:[45.5150,9.1870],mod:11,occ:'58%',bio:61,t:'active'},
+    {n:'Città Studi',c:[45.4780,9.2270],mod:16,occ:'69%',bio:64,t:'active'},
+    {n:'Centro · Duomo',c:[45.4640,9.1900],mod:8,occ:'44%',bio:41,t:'gap'},
+    {n:'Baggio',c:[45.4560,9.0950],mod:13,occ:'66%',bio:63,t:'active'},
+    {n:'Barona',c:[45.4380,9.1560],mod:9,occ:'52%',bio:49,t:'gap'},
+    {n:'Corvetto',c:[45.4400,9.2280],mod:12,occ:'64%',bio:59,t:'active'}
+  ];
+  const COLOR={active:'#dfec44',gap:'#ea5b2e'};
+  const icon=(color)=>L.divIcon({className:'myca-marker',iconSize:[14,14],iconAnchor:[7,7],
+    html:`<span class="myca-dot" style="--c:${color}"><span class="myca-ring"></span></span>`});
+  const card=(s)=>`<div class="mtip">
+      <div class="t-name">${s.n}</div>
+      <div class="t-row"><span>Moduli</span><b>${s.mod}</b></div>
+      <div class="t-row"><span>Occupazione</span><b>${s.occ}</b></div>
+      <div class="t-row"><span>Indice bio</span><b>${s.bio} / 100</b></div>
+    </div>`;
+  SPOTS.forEach(s=>{
+    const m=L.marker(s.c,{icon:icon(COLOR[s.t])}).addTo(map);
+    m.bindTooltip(card(s),{className:'myca-tt',direction:'top',offset:[0,-10],opacity:1});
+    m.bindPopup(card(s),{className:'myca-pop',closeButton:true,offset:[0,-6]});
+  });
+
+  /* keep Leaflet sized to its flex container */
+  const mapBody=document.querySelector('.map-body');
+  new ResizeObserver(()=>map.invalidateSize()).observe(mapBody);
+  setTimeout(()=>map.invalidateSize(),200);
+  window.addEventListener('resize',()=>map.invalidateSize());
+</script>
+</body>
+</html>
