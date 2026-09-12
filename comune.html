@@ -129,11 +129,11 @@
 
   /* ---------- MAP ---------- */
   .map{grid-area:map;padding:0;background:var(--surface);}
-  .map-head{display:flex;justify-content:space-between;align-items:flex-start;padding:26px 26px 0;position:relative;z-index:2;pointer-events:none;}
+  .map-head{display:flex;justify-content:space-between;align-items:flex-start;padding:26px 26px 18px;position:relative;z-index:2;pointer-events:none;border-bottom:1px solid var(--surface-border);}
   .map-head h2{font-size:22px;font-weight:600;}
   .map-head .kicker{margin-bottom:6px;}
-  .map-body{flex:1;position:relative;min-height:520px;}
-  #mapLeaflet{position:absolute;inset:0;width:100%;height:100%;border-radius:0 0 var(--radius) var(--radius);z-index:1;}
+  .map-body{flex:1;position:relative;min-height:400px;}
+  #mapLeaflet{position:absolute;inset:0;width:100%;height:100%;border-radius:0 0 var(--radius) var(--radius);}
   .leaflet-container{background:var(--surface);font-family:var(--sans);}
   .legend{
     position:absolute;left:16px;bottom:14px;z-index:1200;pointer-events:none;
@@ -144,6 +144,8 @@
   }
   .legend span{display:flex;align-items:center;gap:8px;}
   .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  .legend i.op{background:#dfec44;}
+  :root[data-theme="light"] .legend i.op{background:#b8cc1a;}
   .myca-marker{background:transparent;border:none;}
   .myca-dot{position:relative;display:block;width:14px;height:14px;border-radius:50%;background:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 28%,transparent);}
   .myca-ring{position:absolute;inset:-1px;border-radius:50%;border:1.5px solid var(--c);animation:sonar 2.6s ease-out infinite;}
@@ -259,7 +261,7 @@
       grid-template-columns:repeat(2,1fr);grid-template-areas:
         "hero hero" "map map" "alert alert" "gap stat" "trend trend" "tab tab";
     }
-    .map-body{min-height:440px;}
+    .map-body{min-height:360px;}
   }
   @media (max-width:680px){
     body{padding:8px;}
@@ -329,7 +331,7 @@
     <div class="map-body">
       <div id="mapLeaflet"></div>
       <div class="legend">
-        <span><i style="background:#dfec44"></i>Operativo</span>
+        <span><i class="op"></i>Operativo</span>
         <span><i style="background:#e0b13c"></i>Manutenzione</span>
         <span><i style="background:#ea5b2e"></i>Critico / divario bio</span>
       </div>
@@ -506,16 +508,18 @@
   tick();setInterval(tick,30000);
 
   /* ---------- LEAFLET MAP OF MILAN ---------- */
+  /* Tile Esri "Gray Canvas": grigio minimale, chiaro/scuro, senza API key */
   const TILES={
-    dark:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    light:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+    dark:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    light:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
   };
-  const ATTR='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  const ATTR='Tiles &copy; <a href="https://www.esri.com">Esri</a> &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors';
 
   const map=L.map('mapLeaflet',{zoomControl:true,scrollWheelZoom:true,attributionControl:true})
              .setView([45.4668,9.1905],12);
-  let tileLayer=L.tileLayer(TILES[root.getAttribute('data-theme')],{maxZoom:19,subdomains:'abcd',attribution:ATTR}).addTo(map);
-  window.__setMapTheme=(t)=>{const nl=L.tileLayer(TILES[t],{maxZoom:19,subdomains:'abcd',attribution:ATTR}).addTo(map);map.removeLayer(tileLayer);tileLayer=nl;};
+  let tileLayer=L.tileLayer(TILES[root.getAttribute('data-theme')],{maxZoom:16,attribution:ATTR}).addTo(map);
+  const markers=[];
+  window.__setMapTheme=(t)=>{const nl=L.tileLayer(TILES[t],{maxZoom:16,attribution:ATTR}).addTo(map);map.removeLayer(tileLayer);tileLayer=nl;markers.forEach(m=>m.setIcon(icon(colorFor(m._mkType))));};
 
   const SPOTS=[
     {n:'Lambrate · M3',c:[45.4820,9.2360],mod:18,occ:'72%',al:'0 alert',st:'Operativo',t:'ok'},
@@ -528,6 +532,8 @@
     {n:'Corvetto · M4',c:[45.4400,9.2280],mod:12,occ:'64%',al:'1 alert',st:'Manutenzione',t:'warn'}
   ];
   const COLOR={ok:'#dfec44',warn:'#e0b13c',crit:'#ea5b2e'};
+  const OK_LIGHT='#b8cc1a'; /* lime acido, leggermente più scuro: leggibile sul grigio chiaro */
+  const colorFor=(t)=> (t==='ok' && root.getAttribute('data-theme')==='light') ? OK_LIGHT : COLOR[t];
   const icon=(color)=>L.divIcon({className:'myca-marker',iconSize:[14,14],iconAnchor:[7,7],
     html:`<span class="myca-dot" style="--c:${color}"><span class="myca-ring"></span></span>`});
   const card=(s)=>`<div class="mtip">
@@ -538,7 +544,8 @@
       <div class="t-row"><span>Stato</span><b>${s.st}</b></div>
     </div>`;
   SPOTS.forEach(s=>{
-    const m=L.marker(s.c,{icon:icon(COLOR[s.t])}).addTo(map);
+    const m=L.marker(s.c,{icon:icon(colorFor(s.t))}).addTo(map);
+    m._mkType=s.t;markers.push(m);
     m.bindTooltip(card(s),{className:'myca-tt',direction:'top',offset:[0,-10],opacity:1});
     m.bindPopup(card(s),{className:'myca-pop',closeButton:true,offset:[0,-6]});
   });
