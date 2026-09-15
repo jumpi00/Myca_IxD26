@@ -116,7 +116,8 @@
   .t-video .video-thumb{position:relative;width:246px;aspect-ratio:16/9;flex-shrink:0;border-radius:14px;overflow:hidden;background:var(--surface-2);}
   .t-video .video-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
   .t-video .video-thumb::after{content:"";position:absolute;inset:0;background:rgba(18,18,14,.20);}
-  .play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;width:46px;height:46px;border-radius:50%;background:var(--lime);color:var(--ink);display:grid;place-items:center;font-size:16px;padding-left:3px;box-shadow:0 4px 14px rgba(0,0,0,.3);transition:transform .18s ease;}
+  .play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;width:46px;height:46px;border-radius:50%;background:var(--lime);color:var(--ink);display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.3);transition:transform .18s ease;}
+  .play svg{width:18px;height:18px;fill:var(--ink);margin-left:2px;display:block;}
   a.t-video:hover .play{transform:translate(-50%,-50%) scale(1.08);}
 
   /* MAIL CTA (lime) */
@@ -146,8 +147,8 @@
   .t-fall{grid-area:fall;gap:14px;}
   .t-fall .kicker{color:var(--surface-muted);}
   .fall-list{display:flex;gap:10px;flex-wrap:wrap;width:100%;}
-  .fall-row{flex:1;min-width:240px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface-2);border:1px solid var(--surface-border);border-radius:12px;padding:9px 9px 9px 14px;}
-  .fall-row code{font-family:var(--mono);font-size:12px;color:var(--surface-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .fall-row{flex:1;min-width:200px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface-2);border:1px solid var(--surface-border);border-radius:12px;padding:9px 9px 9px 16px;}
+  .fall-row .fname{font-family:var(--sans);font-size:14px;font-weight:500;color:var(--surface-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .copy-one{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;background:var(--surface-hover);border:1px solid var(--surface-border);color:var(--surface-text);border-radius:999px;padding:6px 12px;cursor:pointer;transition:.18s;white-space:nowrap;flex-shrink:0;}
   .copy-one:hover{border-color:var(--surface-border-strong);background:var(--lime);color:var(--ink);}
   .copy-btn{align-self:flex-start;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;background:var(--lime);border:1px solid transparent;color:var(--ink);border-radius:999px;padding:9px 18px;cursor:pointer;transition:.18s;white-space:nowrap;font-weight:600;}
@@ -179,8 +180,7 @@
       grid-template-areas:"hero" "media" "mat" "mail" "team" "video" "citt" "comu" "fall";}
     .t-hero{min-height:0;} .t-media{min-height:200px;}
     .team-grid{grid-template-columns:1fr;}
-    .member{flex-direction:row;text-align:left;gap:14px;}
-    .memoji{width:60px;height:60px;font-size:30px;flex-shrink:0;}
+    .memoji{width:72px;height:72px;font-size:38px;}
     .t-video{flex-direction:column;align-items:stretch;}
     .t-video .video-thumb{width:100%;}
     .t-fall{align-items:flex-start;}
@@ -263,7 +263,7 @@
 
     <!-- VIDEO DEMO — sostituisci href con il link del video -->
     <a class="tile t-video" href="https://youtu.be/7a_aO8IsOBY" target="_blank" rel="noopener">
-      <div class="video-thumb"><img src="thumb-video.jpg" alt="Anteprima video — La geometria vivente"><span class="play">▶</span></div>
+      <div class="video-thumb"><img src="thumb-video.jpg" alt="Anteprima video — La geometria vivente"><span class="play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span></div>
       <div>
         <span class="kicker">Demo</span>
         <h3>Guarda il video <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></h3>
@@ -293,9 +293,9 @@
     <div class="tile t-fall">
       <span class="kicker">Copia le mail del team</span>
       <div class="fall-list">
-        <div class="fall-row"><code>giampaolo_zirone@studenti.naba.it</code><button class="copy-one" type="button">Copia</button></div>
-        <div class="fall-row"><code>maria_chieregato@studenti.naba.it</code><button class="copy-one" type="button">Copia</button></div>
-        <div class="fall-row"><code>nicola_sorgesa@studenti.naba.it</code><button class="copy-one" type="button">Copia</button></div>
+        <div class="fall-row"><span class="fname">Giampaolo Zirone</span><button class="copy-one" type="button" data-email="giampaolo_zirone@studenti.naba.it">Copia</button></div>
+        <div class="fall-row"><span class="fname">Maria Chieregato</span><button class="copy-one" type="button" data-email="maria_chieregato@studenti.naba.it">Copia</button></div>
+        <div class="fall-row"><span class="fname">Nicola Sorgesa</span><button class="copy-one" type="button" data-email="nicola_sorgesa@studenti.naba.it">Copia</button></div>
       </div>
       <button class="copy-btn" id="copyAll" type="button">Copia tutte</button>
     </div>
@@ -327,15 +327,14 @@
   /* copia singola mail */
   document.querySelectorAll('.copy-one').forEach(btn=>{
     btn.addEventListener('click',async()=>{
-      const email=btn.parentElement.querySelector('code').textContent.trim();
-      try{ await navigator.clipboard.writeText(email); }catch(e){}
+      try{ await navigator.clipboard.writeText(btn.dataset.email); }catch(e){}
       const old=btn.textContent; btn.textContent='Copiata ✓'; setTimeout(()=>btn.textContent=old,1400);
     });
   });
   /* copia tutte le mail */
   const copyAll=document.getElementById('copyAll');
   copyAll.addEventListener('click',async()=>{
-    const emails=[...document.querySelectorAll('.fall-row code')].map(c=>c.textContent.trim()).join(', ');
+    const emails=[...document.querySelectorAll('.copy-one')].map(b=>b.dataset.email).join(', ');
     try{ await navigator.clipboard.writeText(emails); }catch(e){}
     const old=copyAll.textContent; copyAll.textContent='Copiate ✓'; setTimeout(()=>copyAll.textContent=old,1600);
   });
